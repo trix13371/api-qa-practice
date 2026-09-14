@@ -37,6 +37,6 @@ This was a controlled sensitivity check, not an external product defect or a ful
 
 ## Ограничения / Limitations
 
-Проверен локальный запуск в Windows. GitHub Actions подготовлен, но результат CI пока не подтверждён. Непокрытые сценарии указаны в [контракте](api-contract.md).
+Проверен локальный запуск в Windows и [запуск GitHub Actions на Linux](https://github.com/trix13371/api-qa-practice/actions/runs/34808870164) для коммита `07c0871fd0163d80d95259e5d0e22192d326be45`: установка зависимостей, выполнение тестов и загрузка XML-отчёта завершились успешно. Непокрытые сценарии указаны в [контракте](api-contract.md).
 
-Local Windows execution was verified. GitHub Actions is configured but not yet verified. See the [contract](api-contract.md) for uncovered scenarios.
+Verified locally on Windows and in a [Linux GitHub Actions run](https://github.com/trix13371/api-qa-practice/actions/runs/34808870164) for commit `07c0871fd0163d80d95259e5d0e22192d326be45`: dependency installation, test execution, and XML report upload succeeded. See the [contract](api-contract.md) for uncovered scenarios.

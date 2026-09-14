@@ -2,6 +2,8 @@
 
 [English](docs/README.en.md)
 
+[![API tests](https://github.com/trix13371/api-qa-practice/actions/workflows/tests.yml/badge.svg)](https://github.com/trix13371/api-qa-practice/actions/workflows/tests.yml)
+
 Небольшой API управления задачами и автотесты на Python: pytest + requests. Тесты отправляют настоящие HTTP-запросы локальному серверу Flask. Внешний сайт, аккаунт и Docker не нужны.
 
 Это стартовый учебный проект, а не коммерческий опыт. Реализованы создание, получение списка и получение задачи по ID. Данные хранятся только в памяти.
@@ -35,7 +37,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -v
 ```
 
-Локально проверено в Windows. Linux-конфигурация подготовлена для CI; запуск в GitHub Actions пока не подтверждён.
+Проверено локально в Windows и в GitHub Actions на Linux: [успешный запуск CI](https://github.com/trix13371/api-qa-practice/actions/runs/34808870164).
 
 ## Ручные запросы
 
@@ -70,7 +72,7 @@ Invoke-RestMethod http://127.0.0.1:8000/tasks
 .\.venv\Scripts\python.exe -m pytest -v --junitxml=reports/junit.xml
 ```
 
-XML-отчёт создаётся в `reports/`; папка не включается в Git. После публикации workflow должен запустить тесты и приложить XML как артефакт `api-test-results`. Наличие workflow само по себе не означает успешного прогона CI.
+XML-отчёт создаётся в `reports/`; папка не включается в Git. Workflow запускает тесты при push и pull request и прикладывает XML как артефакт `api-test-results`. Результаты доступны на вкладке [Actions](https://github.com/trix13371/api-qa-practice/actions).
 
 ## Дальнейшее развитие
 

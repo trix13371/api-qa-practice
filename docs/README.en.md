@@ -2,6 +2,8 @@
 
 [Русский](../README.md)
 
+[![API tests](https://github.com/trix13371/api-qa-practice/actions/workflows/tests.yml/badge.svg)](https://github.com/trix13371/api-qa-practice/actions/workflows/tests.yml)
+
 A small in-memory Flask service and Python tests using pytest and requests. Tests send real HTTP requests to a local server, not a mock. No external account, website, or Docker is required.
 
 This is a starter learning project, not commercial experience. Only create, list, and retrieve endpoints are implemented.
@@ -35,7 +37,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -v
 ```
 
-Local execution was verified on Windows. Linux CI configuration is included, but a GitHub Actions run has not yet been verified.
+Verified locally on Windows and on Linux in GitHub Actions: [successful CI run](https://github.com/trix13371/api-qa-practice/actions/runs/34808870164).
 
 ## Manual API practice
 
@@ -70,7 +72,7 @@ Stop with `Ctrl+C`. Restarting clears the data. The service is for local practic
 .\.venv\Scripts\python.exe -m pytest -v --junitxml=reports/junit.xml
 ```
 
-Generated `reports/` is ignored by Git. Once published, the workflow is configured to run on push and pull requests and upload XML as `api-test-results`. Configuration alone is not evidence of a successful CI run.
+Generated `reports/` is ignored by Git. The workflow runs on push and pull requests and uploads XML as `api-test-results`. See the [Actions tab](https://github.com/trix13371/api-qa-practice/actions) for run results.
 
 ## Next steps
 
