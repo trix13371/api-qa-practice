@@ -38,6 +38,6 @@ Version 2 changes the old API: tasks now require authentication and unknown fiel
 
 ## CI and scope
 
-[Workflow](../.github/workflows/tests.yml) runs pytest on pushes and pull requests, and uploads JUnit XML. The expanded version has been verified locally; its GitHub Actions result must be checked after publishing.
+[Workflow](../.github/workflows/tests.yml) runs pytest on pushes and pull requests, and uploads JUnit XML. The expanded version passed locally on Windows and in [GitHub Actions on Linux](https://github.com/trix13371/api-qa-practice/actions/runs/40282551983) on 26 October 2026. The test step and JUnit artifact upload both completed successfully.
 
 This is a learning project, not commercial work or a production-ready service. SQLite is not PostgreSQL. Load testing, concurrent updates, password recovery and a comprehensive security audit are outside the verified scope. [Beginner walkthrough, Russian](walkthrough.md).
