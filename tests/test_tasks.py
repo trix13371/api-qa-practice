@@ -53,7 +53,7 @@ def test_invalid_task_does_not_change_saved_tasks(api_url, http, payload):
     # Assert: rejection must not create or erase tasks.
     assert response.status_code == 400
     assert response.headers["Content-Type"].startswith("application/json")
-    assert response.json() == {"error": "title must be a non-empty string"}
+    assert response.json() == {"error": "title must be a non-blank string of 1-100 characters"}
 
     after_response = http.get(f"{api_url}/tasks", timeout=3)
     assert after_response.status_code == 200

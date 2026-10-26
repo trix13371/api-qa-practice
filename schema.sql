@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL COLLATE BINARY,
+    password_hash TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    expires_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL REFERENCES users(id),
+    title TEXT NOT NULL CHECK(length(title) BETWEEN 1 AND 100),
+    completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1))
+);
+CREATE INDEX IF NOT EXISTS tasks_owner_id ON tasks(owner_id, id);

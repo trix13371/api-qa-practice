@@ -1,42 +1,41 @@
-# Проверка проекта / Project verification
+# Результаты проверки версии 2
 
-## Окружение / Environment
+## Окружение и команда
 
-Windows, Python 3.14.7, Flask 3.1.3, pytest 9.1.1, requests 2.34.2. Локальный HTTP-сервер / local HTTP server.
-
-## Основной прогон / Main suite
+Последняя локальная проверка: 26 октября 2026, Windows, Python 3.14.7. Зависимости: Flask 3.1.3, pytest 9.1.1, requests 2.34.2.
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -v --junitxml=reports/junit.xml
+.\.venv\Scripts\python.exe -m pytest -q --junitxml=reports/junit.xml
 ```
 
-| Case | Result |
+Итог последнего прогона: **114 passed in 24.71s**, exit code 0. Длительность справочная, не тест производительности. reports/junit.xml создан локально; это генерируемый файл, исключённый из Git. Ранее, 2 октября 2026, тот же набор прошёл за 22.22s.
+
+| Файл | Результаты с учётом параметризации |
 | --- | --- |
-| test_create_task_and_read_it_back | PASSED |
-| test_invalid_task_does_not_change_saved_tasks[empty-title] | PASSED |
-| test_invalid_task_does_not_change_saved_tasks[numeric-title] | PASSED |
-| test_invalid_task_does_not_change_saved_tasks[missing-title] | PASSED |
+| test_tasks.py | 4 passed |
+| test_auth.py | 54 passed |
+| test_workflows.py | 44 passed |
+| test_protocol_and_storage.py | 11 passed |
+| test_sql_checks.py | 1 passed |
 
-Итог: **4 passed**. Две тестовые функции, четыре запуска с учётом параметризации.
+Число 114 включает сочетания одного сценария с разными данными и методами HTTP. Оно не означает 114 отдельных пользовательских историй.
 
-Result: **4 passed**. Two test functions, four executions including parametrization.
+## Обнаруженный дефект и перепроверка
 
-## Намеренная ошибка / Deliberate regression check
+Первый прогон расширенного набора: 1 failed, 111 passed in 21.46s. Неверный title с U+0000 вызвал HTTP 500 вместо контролируемого отказа. Исправлена общая валидация title, добавлен регрессионный вариант PATCH.
 
-Временно в сервисе название создаваемой задачи заменено на `Wrong title`. Положительный тест завершился с `1 failed`: ожидалось `Learn API`, получено `Wrong title`. Сервер продолжал возвращать 201 — одной проверки статуса было бы недостаточно.
+После исправления: 113 passed in 21.03s. Затем добавлена проверка выполнения четырёх SQL-запросов из документации; итоговый прогон приведён выше.
 
-The service was temporarily changed to return `Wrong title`. The positive test returned `1 failed`, comparing expected `Learn API` with actual `Wrong title`. HTTP 201 was unchanged, so a status-only check would have missed this regression.
+Запрос, причина и ожидаемое поведение описаны в [BUG-001](bug-report-001.md). Это дефект новой учебной реализации, не результат тестирования сторонней системы.
 
-Намеренная ошибка удалена. Полный набор повторно запущен после восстановления правильного кода.
+## Что действительно проверено
 
-The deliberate regression was reverted and the full suite rerun.
+Настоящие HTTP-запросы к локальному серверу; регистрация и вход; время жизни и отзыв сессии; доступ двух владельцев; создание, чтение, изменение, удаление; валидация и сохранность; фильтры и страницы; перезапуск приложения с тем же файлом SQLite; диагностические заголовки и лог; контрольные SQL-запросы.
 
-Это искусственная проверка чувствительности теста, не дефект стороннего продукта и не полный mutation testing.
+python -m pip check: No broken requirements found.
 
-This was a controlled sensitivity check, not an external product defect or a full mutation-testing campaign.
+## CI и ограничения
 
-## Ограничения / Limitations
+Workflow для GitHub Actions сохранён: запуск на push/pull request и загрузка JUnit. Новый набор пока проверен только локально в Windows. Старый успешный CI-прогон относился к первоначальным четырём проверкам и не подтверждает новую версию.
 
-Проверен локальный запуск в Windows и [запуск GitHub Actions на Linux](https://github.com/trix13371/api-qa-practice/actions/runs/34808870164) для коммита `07c0871fd0163d80d95259e5d0e22192d326be45`: установка зависимостей, выполнение тестов и загрузка XML-отчёта завершились успешно. Непокрытые сценарии указаны в [контракте](api-contract.md).
-
-Verified locally on Windows and in a [Linux GitHub Actions run](https://github.com/trix13371/api-qa-practice/actions/runs/34808870164) for commit `07c0871fd0163d80d95259e5d0e22192d326be45`: dependency installation, test execution, and XML report upload succeeded. See the [contract](api-contract.md) for uncovered scenarios.
+Ручные проверки, отдельно подтверждённые ответами Postman, приведены в [отчёте](manual-checks.md). Это не утверждение о ручном прохождении всех автоматизированных вариантов. Нагрузочные, конкурентные и остальные непокрытые проверки перечислены в [тест-плане](test-plan.md).

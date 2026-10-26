@@ -1,79 +1,43 @@
-# Task API — API test automation practice
+# Task API — QA portfolio project
 
 [Русский](../README.md)
 
-[![API tests](https://github.com/trix13371/api-qa-practice/actions/workflows/tests.yml/badge.svg)](https://github.com/trix13371/api-qa-practice/actions/workflows/tests.yml)
+A local task service with registration, bearer sessions, owner-isolated CRUD, filtering, pagination and persistent SQLite storage. Tests use pytest and requests over real HTTP, not Flask's test client or a mocked API.
 
-A small in-memory Flask service and Python tests using pytest and requests. Tests send real HTTP requests to a local server, not a mock. No external account, website, or Docker is required.
+## Evidence
 
-This is a starter learning project, not commercial experience. Only create, list, and retrieve endpoints are implemented.
+- [Contract](api-contract.md): explicit validation, access and state rules.
+- [Risk-based test plan](test-plan.md): requirements mapped to executable scenarios.
+- [Tests](../tests): boundaries, negative cases, full task lifecycle, two-user isolation, atomic updates, session expiry/logout and persistence after a server restart.
+- [SQL checks](sql-checks.sql): joins, aggregation and integrity diagnostics.
+- [Defect report](bug-report-001.md): an observed validation/storage mismatch, fix and regression.
+- [Manual API checks](manual-checks.md): recorded Postman results, separate from automated test coverage.
+- [Verification](test-results.md): 114 cases passed locally on Windows, including parametrization. This is not 114 distinct business workflows.
 
-## Coverage
+## Run
 
-Two test functions produce **four test cases**:
-
-1. Create a task: verify HTTP 201, JSON, positive integer ID, title and completion flag; read it back through list and detail endpoints.
-2. Reject an empty title, a numeric title, and a missing title: verify HTTP 400, the error message, and that existing tasks remain unchanged.
-
-Each case gets a new empty server on a free local port, with automatic cleanup. Requests have timeouts. Tests do not rely on earlier executions.
-
-## Run on Windows
-
-Install Python 3.14 and open a terminal in the project directory. Environment activation is unnecessary.
+Python 3.14, Windows:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m pytest -v
+.\.venv\Scripts\python.exe -m pytest -v --junitxml=reports/junit.xml
 ```
 
-Expected result: `4 passed`. Tests start the server automatically.
+Linux/macOS: use python3 and .venv/bin/python. Tests create an isolated temporary database and automatically manage a local server on a free port.
 
-## Run on Linux/macOS
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python -m pytest -v
-```
-
-Verified locally on Windows and on Linux in GitHub Actions: [successful CI run](https://github.com/trix13371/api-qa-practice/actions/runs/34808870164).
-
-## Manual API practice
-
-Start the server in one Windows terminal:
+Manual server:
 
 ```powershell
 .\.venv\Scripts\python.exe -m flask --app task_api run --host 127.0.0.1 --port 8000
 ```
 
-Send requests from another PowerShell terminal:
+Register via POST /users, log in via POST /auth/login, then use Authorization: Bearer <access_token> on /tasks. See the main README for a complete PowerShell example. The default database is instance/tasks.sqlite3; TASK_API_DATABASE overrides the path. Restarting preserves data.
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/tasks -Method Post -ContentType 'application/json' -Body '{"title":"Learn API"}'
-Invoke-RestMethod http://127.0.0.1:8000/tasks
-```
+Version 2 changes the old API: tasks now require authentication and unknown fields are rejected. Schema migrations for existing arbitrary databases are not included.
 
-Stop with `Ctrl+C`. Restarting clears the data. The service is for local practice only.
+## CI and scope
 
-## Project files
+[Workflow](../.github/workflows/tests.yml) runs pytest on pushes and pull requests, and uploads JUnit XML. The expanded version has been verified locally; its GitHub Actions result must be checked after publishing.
 
-- [Test cases](../tests/test_tasks.py)
-- [Server and client fixtures](../tests/conftest.py)
-- [Application](../task_api.py)
-- [API contract and limitations](api-contract.md)
-- [Russian beginner walkthrough](walkthrough.md)
-- [Verification results](test-results.md)
-- [GitHub Actions workflow](../.github/workflows/tests.yml)
-
-## Reports and CI
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -v --junitxml=reports/junit.xml
-```
-
-Generated `reports/` is ignored by Git. The workflow runs on push and pull requests and uploads XML as `api-test-results`. See the [Actions tab](https://github.com/trix13371/api-qa-practice/actions) for run results.
-
-## Next steps
-
-Add unknown-ID, whitespace-only title and malformed-JSON tests. Implement update and delete endpoints later. These are outside the current scope.
+This is a learning project, not commercial work or a production-ready service. SQLite is not PostgreSQL. Load testing, concurrent updates, password recovery and a comprehensive security audit are outside the verified scope. [Beginner walkthrough, Russian](walkthrough.md).
