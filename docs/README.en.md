@@ -1,4 +1,4 @@
-# Task API — QA portfolio project
+# Task API - QA portfolio project
 
 [Русский](../README.md)
 
@@ -12,6 +12,7 @@ A local task service with registration, bearer sessions, owner-isolated CRUD, fi
 - [SQL checks](sql-checks.sql): joins, aggregation and integrity diagnostics.
 - [Defect report](bug-report-001.md): an observed validation/storage mismatch, fix and regression.
 - [Manual API checks](manual-checks.md): recorded Postman results, separate from automated test coverage.
+- [Postman collection](../postman/Task_API.postman_collection.json): 30 ordered requests with response assertions, generated test users, dynamic IDs and bearer sessions. [Import and Newman guide](../postman/README.md).
 - [Verification](test-results.md): 114 cases passed locally on Windows, including parametrization. This is not 114 distinct business workflows.
 
 ## Run
@@ -37,6 +38,8 @@ Register via POST /users, log in via POST /auth/login, then use Authorization: B
 Version 2 changes the old API: tasks now require authentication and unknown fields are rejected. Schema migrations for existing arbitrary databases are not included.
 
 ## CI and scope
+
+The workflow also runs the Postman collection twice through Newman against a temporary SQLite database and an automatically started loopback server. Install development tools with npm ci, then run `.venv/bin/python scripts/run_postman.py` (Windows: `.\.venv\Scripts\python.exe scripts/run_postman.py`). The JUnit output is reports/postman.xml. The historical manual run and this new automated collection are distinct evidence.
 
 [Workflow](../.github/workflows/tests.yml) runs pytest on pushes and pull requests, and uploads JUnit XML. The expanded version passed locally on Windows and in [GitHub Actions on Linux](https://github.com/trix13371/api-qa-practice/actions/runs/40282551983) on 26 October 2026. The test step and JUnit artifact upload both completed successfully.
 

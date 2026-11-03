@@ -1,0 +1,12 @@
+{
+  "name": "task-api-qa-portfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Development-only Newman runner for the local Task API portfolio",
+  "scripts": {
+    "test:postman": "python scripts/run_postman.py"
+  },
+  "devDependencies": {
+    "newman": "6.2.3"
+  }
+}

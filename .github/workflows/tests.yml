@@ -29,3 +29,30 @@ jobs:
           name: api-test-results
           path: reports/junit.xml
           if-no-files-found: ignore
+
+  postman:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Install Newman
+        run: npm ci
+      - name: Run isolated Postman regression
+        run: python scripts/run_postman.py --iterations 2
+      - name: Upload Postman results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-test-results
+          path: reports/postman.xml
+          if-no-files-found: error

@@ -1,0 +1,998 @@
+{
+  "info": {
+    "name": "Task API - reproducible two-user regression",
+    "description": "Educational local-only HTTP regression. Run the WHOLE collection in order, starting with 01. A fresh username pair is generated per iteration; task IDs and tokens come from responses. Runtime tokens must never be exported or shared. Scenarios cover CRUD, rejected PATCH atomicity, owner isolation, filtering, authentication and logout. A CLI runner supplies a temporary SQLite database and free local port. This is not commercial experience or exhaustive security testing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token_a}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Local_training_123!",
+      "type": "string"
+    },
+    {
+      "key": "username_a",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "username_b",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_a",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_b",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "task_a_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "task_b_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "task_a_snapshot",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "task_b_snapshot",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const base = pm.variables.replaceIn(\"{{base_url}}\");",
+          "if (!/^http:\\/\\/(127\\.0\\.0\\.1|localhost)(:\\d+)?$/.test(base)) {",
+          "    pm.execution.setNextRequest(null);",
+          "    pm.test(\"Target is an allowed local training server\", () => pm.expect.fail(\"Use http://127.0.0.1 or http://localhost without a path\"));",
+          "    pm.execution.skipRequest();",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"Request ID is UUID\", () => {",
+          "    pm.expect(pm.response.headers.get(\"X-Request-ID\")).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);",
+          "});",
+          "pm.test(\"Sensitive responses are not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+          "if (pm.response.code === 204) {",
+          "    pm.test(\"204 response is empty\", () => pm.expect(pm.response.text()).to.eql(\"\"));",
+          "} else {",
+          "    pm.test(\"Response is JSON\", () => {",
+          "        pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+          "        pm.response.json();",
+          "    });",
+          "}",
+          "if (pm.response.code >= 400) {",
+          "    pm.test(\"Error is structured\", () => pm.expect(pm.response.json().error).to.be.a(\"string\").and.not.empty);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Health and fresh test data",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/health",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const suffix = pm.variables.replaceIn(\"{{$guid}}\").replace(/-/g, \"\").slice(0, 24);",
+              "pm.collectionVariables.set(\"username_a\", \"qa_a_\" + suffix);",
+              "pm.collectionVariables.set(\"username_b\", \"qa_b_\" + suffix);",
+              "[\"token_a\", \"token_b\", \"task_a_id\", \"task_b_id\", \"task_a_snapshot\", \"task_b_snapshot\"].forEach(k => pm.collectionVariables.set(k, \"\"));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Service healthy\", () => { pm.expect(pm.response.json()).to.eql({status:\"ok\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Register user A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{username_a}}\",\"password\":\"{{password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Registered user without password\", () => { const data = pm.response.json(); pm.expect(data.username).to.eql(pm.collectionVariables.get(\"username_a\")); pm.expect(Number.isInteger(data.id) && data.id > 0).to.eql(true); pm.expect(Object.keys(data).sort()).to.eql([\"id\",\"username\"]); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Login user A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{username_a}}\",\"password\":\"{{password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Bearer session returned\", () => { const data=pm.response.json(); pm.expect(data.token_type).to.eql(\"Bearer\"); pm.expect(data.expires_in).to.eql(3600); pm.expect(data.access_token).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"token_a\", data.access_token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Register user B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{username_b}}\",\"password\":\"{{password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Registered user without password\", () => { const data = pm.response.json(); pm.expect(data.username).to.eql(pm.collectionVariables.get(\"username_b\")); pm.expect(Number.isInteger(data.id) && data.id > 0).to.eql(true); pm.expect(Object.keys(data).sort()).to.eql([\"id\",\"username\"]); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Login user B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{username_b}}\",\"password\":\"{{password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Bearer session returned\", () => { const data=pm.response.json(); pm.expect(data.token_type).to.eql(\"Bearer\"); pm.expect(data.expires_in).to.eql(3600); pm.expect(data.access_token).to.be.a(\"string\").and.not.empty; pm.collectionVariables.set(\"token_b\", data.access_token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Create A task",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/tasks",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Owner task\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Task fields and generated ID\", () => { const data=pm.response.json(); pm.expect(Object.keys(data).sort()).to.eql([\"completed\",\"id\",\"title\"]); pm.expect(data.title).to.eql(\"Owner task\"); pm.expect(data.completed).to.eql(false); pm.expect(Number.isInteger(data.id) && data.id > 0).to.eql(true); pm.collectionVariables.set(\"task_a_id\", String(data.id)); pm.collectionVariables.set(\"task_a_snapshot\",JSON.stringify(data)); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Read saved A task",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_a_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Saved task matches\", () => { pm.expect(pm.response.json()).to.eql(JSON.parse(pm.collectionVariables.get(\"task_a_snapshot\"))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Complete A task",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/tasks/{{task_a_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Owner task completed\",\n  \"completed\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"PATCH changes persist in response\", () => { const data=pm.response.json(); pm.expect(data).to.eql({id:Number(pm.collectionVariables.get(\"task_a_id\")),title:\"Owner task completed\",completed:true}); pm.collectionVariables.set(\"task_a_snapshot\",JSON.stringify(data)); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Reject string boolean and atomic update",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/tasks/{{task_a_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Must not be saved\",\n  \"completed\": \"false\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Validation error\", () => { pm.expect(pm.response.json().error).to.eql(\"completed must be a boolean\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Verify rejected PATCH changed nothing",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_a_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Saved task matches\", () => { pm.expect(pm.response.json()).to.eql(JSON.parse(pm.collectionVariables.get(\"task_a_snapshot\"))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 B cannot read A task",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_a_id}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"No foreign task disclosed\", () => { pm.expect(pm.response.json()).to.eql({error:\"Task not found\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 B cannot change A task",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/tasks/{{task_a_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Forbidden change\",\n  \"completed\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"No foreign task disclosed\", () => { pm.expect(pm.response.json()).to.eql({error:\"Task not found\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 B cannot delete A task",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_a_id}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"No foreign task disclosed\", () => { pm.expect(pm.response.json()).to.eql({error:\"Task not found\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 A task survives forbidden operations",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_a_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Saved task matches\", () => { pm.expect(pm.response.json()).to.eql(JSON.parse(pm.collectionVariables.get(\"task_a_snapshot\"))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 B list excludes A task",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"B has no tasks\", () => { pm.expect(pm.response.json()).to.eql([]); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Create B task",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/tasks",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Second owner task\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"B task created\", () => { const data=pm.response.json(); pm.expect(Object.keys(data).sort()).to.eql([\"completed\",\"id\",\"title\"]); pm.expect(data.completed).to.eql(false); pm.expect(data.title).to.eql(\"Second owner task\"); pm.expect(Number.isInteger(data.id) && data.id > 0).to.eql(true); pm.collectionVariables.set(\"task_b_id\",String(data.id)); pm.collectionVariables.set(\"task_b_snapshot\",JSON.stringify(data)); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 B list includes only B task",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Only current owner in list\", () => { pm.expect(pm.response.json()).to.eql([JSON.parse(pm.collectionVariables.get(\"task_b_snapshot\"))]); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Filter and paginate A tasks",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks?completed=true&limit=1&offset=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Filter preserves ownership\", () => { pm.expect(pm.response.json()).to.eql([JSON.parse(pm.collectionVariables.get(\"task_a_snapshot\"))]); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Reject unauthenticated request",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Bearer authentication required\", () => { pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.eql(\"Bearer\"); pm.expect(pm.response.json()).to.eql({error:\"Authentication required\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Reject invalid token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "invalid-training-token",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Invalid token rejected\", () => { pm.expect(pm.response.json()).to.eql({error:\"Authentication required\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 Logout B",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/auth/logout",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Reject revoked B token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Revoked session rejected\", () => { pm.expect(pm.response.json()).to.eql({error:\"Authentication required\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 Login B again",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{username_b}}\",\"password\":\"{{password}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"New B session\", () => { const data=pm.response.json(); pm.expect(data.token_type).to.eql(\"Bearer\"); pm.expect(data.access_token).to.be.a(\"string\").and.not.empty; pm.expect(data.access_token).not.to.eql(pm.collectionVariables.get(\"token_b\")); pm.collectionVariables.set(\"token_b\",data.access_token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 B task survives logout and login",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_b_id}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Saved task matches\", () => { pm.expect(pm.response.json()).to.eql(JSON.parse(pm.collectionVariables.get(\"task_b_snapshot\"))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 Delete own A task",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_a_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 Deleted A task cannot be read",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_a_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Deleted task missing\", () => { pm.expect(pm.response.json()).to.eql({error:\"Task not found\"}); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 A list empty after deletion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/tasks"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Deletion persisted\", () => { pm.expect(pm.response.json()).to.eql([]); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 Delete own B task",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{base_url}}/tasks/{{task_b_id}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Logout A",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 Logout B final session",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/auth/logout",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_b}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
